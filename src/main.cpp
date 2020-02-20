@@ -36,7 +36,7 @@ int main()
     osStatus status;
 
     red = 0;
-    canInit(BD125000, false); /* Do not want loopback mode */
+    canInit(BD125000, false);   /* Do not want loopback mode */
     pc.printf("Display -- \n");
 
     status = reader.start(canReadTask);
@@ -61,7 +61,7 @@ static void led1Toggle(void)
 void canWriteTask(void)
 {
 
-    static canMessage_t txMsg = { 0x25, 8, 0, 0 }; /* Need unique Ids for messages */
+    static canMessage_t txMsg = { 0x25, 8, 0, 0 };      /* Need unique Ids for messages */
     bool txOk;
 
     while (true) {
@@ -76,6 +76,9 @@ void canWriteTask(void)
     }
 }
 
+/* Semaphore to signal message is ready */
+Semaphore msgrdy;
+
 /* Read and display messages arriving on the CAN port */
 void canReadTask(void)
 {
@@ -84,15 +87,13 @@ void canReadTask(void)
 
     rxDone = false;
     while (true) {
-        if (rxDone) {           // rxDone could be better handled by a semaphore
-            rxDone = false;
-			rxCount+=1;
-			canRead(&rxMsg);
-            pc.printf
-                ("ID: %#lx LEN: %lx DATA_A: %#06lx DATA_B: %#06lx\n",
-                 rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB);
-            rxCount += 1;
-        }
+        msgrdy.wait();/* Wait for message to be ready */
+        rxCount += 1;
+        pc.printf
+            ("ID: %#lx LEN: %lx DATA_A: %#06lx DATA_B: %#06lx\n",
+             rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB);
+        rxCount += 1;
+
         ThisThread::sleep_for(100);
     }
 }
@@ -101,6 +102,5 @@ void canReadTask(void)
 void canHandler(void)
 {
     canTransferRxFrame(&rxMsg);
-    rxDone = true;
+    msgrdy.release(); /* release message for use */
 }
-
