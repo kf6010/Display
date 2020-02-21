@@ -55,6 +55,15 @@ static void led1Toggle(void)
     red = 1 - red;
 }
 
+
+Semaphore sw2press;   /* Signal sw2 is pressed */
+InterruptIn sw2(SW2); /* Interrupt for sw2 */
+
+void sw2_handler(void) /* Interrupt handler for */
+{
+	sw2press.release();
+}
+
 /* Transmit CAN message with arbitrary id and 8 bytes of
  * data consisting of a repeated count of the number of transmitted messages
  */
@@ -64,7 +73,10 @@ void canWriteTask(void)
     static canMessage_t txMsg = { 0x25, 8, 0, 0 };      /* Need unique Ids for messages */
     bool txOk;
 
+	sw2.fall(sw2_handler);
+
     while (true) {
+		sw2press.wait();
         // Transmit message on CAN 
         txOk = canWrite(&txMsg);
         if (txOk) {
